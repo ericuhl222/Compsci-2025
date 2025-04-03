@@ -2,9 +2,11 @@ import random
 
 
 #town choice / what 2 do
-"""Gets the user's choice in town and validates it."""
-def get_user_town_choice(player_hp, gold):
 
+def get_user_town_choice(player_hp, gold):
+    """Gets the user's choice in town and validates it.
+    get_user_town_choice
+    """
     while True:
         print("\nYou are in town.")
         print(f"Current HP: {player_hp}, Current Gold: {gold}")
@@ -23,12 +25,15 @@ def get_user_town_choice(player_hp, gold):
 
 #new random monster code
      #this will need to be balanced, but could be fun to have OP bad guy
-"""generates one of three monster types to fight later
- called with new_random_monster
 
- returns sel_health, sel_money, sel_monster, sel_scenario"""
 
 def new_random_monster():
+
+    """generates one of three monster types to fight later
+    called with new_random_monster
+
+    returns sel_health, sel_money, sel_monster, sel_scenario"""
+    
     monsters = ["demon", "ghost", "goblin", "creeper"]
     health = random.randint(0,25)
     sel_money = random.randint(0,24)
@@ -41,12 +46,14 @@ def new_random_monster():
                                                                    
     return(sel_health, sel_money, sel_monster, sel_scenario)
 
-#tussling 
-"""Code for handling health and fights within the game
+#fighting code
 
-called by using handle_fight(player_hp, gold):
-"""
 def handle_fight(player_hp, gold):
+
+    """Code for handling health and fights within the game
+
+    called by using handle_fight(player_hp, gold):
+    """
     monster_hp = 15
     monster_attack = 5
     monster_type = "Goblin"
@@ -80,16 +87,20 @@ def handle_fight(player_hp, gold):
         return player_hp, gold
 
 #who is winning
-"""Displays the current HP of the player and monster."""
+
 def display_fight_statistics(player_hp, monster_hp):
+
+    """Displays the current HP of the player and monster."""
     print(f"Your HP: {player_hp}, Monster HP: {monster_hp}")
 
 #what to do in fight?
-"""Gets the user's choice during a fight.
 
-called with get_user_fight_options, should be called from gamefunctions"""
     
 def get_user_fight_options():
+
+    """Gets the user's choice during a fight.
+
+    called with get_user_fight_options, should be called from gamefunctions"""
     while True:
         print("1) Continue Fighting")
         print("2) Run Away")
@@ -99,10 +110,12 @@ def get_user_fight_options():
         else:
             print("Invalid choice. Please enter 1 or 2.")
 #nap time code
-"""sleep action restores health after removing 5 gold from your inventory
-called with handle_sleep"""
+
 
 def handle_sleep(player_hp, gold):
+
+    """sleep action restores health after removing 5 gold from your inventory
+    called with handle_sleep"""
     if gold >= 5:
         player_hp = 30
         gold -= 5
@@ -113,10 +126,12 @@ def handle_sleep(player_hp, gold):
         return player_hp, gold
 
 #purchasing from the shop
-"""this is to be used with a shop code to purchase items within the game
-called on with purchase_item(item_price, starting_money, quantity)"""
+
 
 def purchase_item(item_price, starting_money, quantity):
+
+    """this is to be used with a shop code to purchase items within the game
+    called on with purchase_item(item_price, starting_money, quantity)"""
     total_purchase = (item_price * quantity)
     if starting_money < total_purchase:
         quantity = quantity - 1
@@ -134,15 +149,20 @@ def purchase_item(item_price, starting_money, quantity):
         return(quantity, leftover_money)
 
 #visual menu I made for the shop
-"""this is to print a small menu for the shop, currently
-it holds only two items in a small box of text
-called on with print_shop_ menu(item1, x: float, item2, y: float):"""
+
 
 def print_shop_menu(item1, x: float, item2, y: float):
+
+    """this is to print a small menu for the shop, currently
+    it holds only two items in a small box of text
+    x and y are prices respectively.
+    called on with print_shop_ menu(item1, x: float, item2, y: float):"""
     print('/' + '-' * 22 + '\\' )
     print(f"|{item1:<15}{x:>7}|",)
     print(f"|{item2:<15}{y:>7}|",)
     print('\\' + '-' * 22 + '/' )
 
-"""inventory and shop stuff will be held below"""
+
+
+"""inventory and additional shop stuff will be held below"""
 
