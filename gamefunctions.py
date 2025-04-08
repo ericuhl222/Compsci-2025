@@ -1,10 +1,13 @@
 import random
+import json
+import os
 
 # Town choice / what to do
-def get_user_town_choice(player_hp, gold, inventory):  
+def get_user_town_choice(player_hp, gold, inventory):
     """Gets the user's choice in town and validates it.
 
-    get_user_town_choice(player_hp, gold, inventory)"""
+    get_user_town_choice(player_hp, gold, inventory)
+    """
     while True:
         print("\nYou are in town.")
         print(f"Current HP: {player_hp}, Current Gold: {gold}")
@@ -13,15 +16,15 @@ def get_user_town_choice(player_hp, gold, inventory):
         print("2) Sleep (Restore HP for 5 Gold)")
         print("3) Check your inventory")
         print("4) Go to the shop")
-        print("5) Equip item")  
-        print("6) Quit")  
+        print("5) Equip item")
+        print("6) Save and Quit") #added save
+        print("7) Quit")
 
-        choice = input("Enter your choice (1, 2, 3, 4, 5, or 6): ")  
-        if choice in ("1", "2", "3", "4", "5", "6"):  # changed to 6
+        choice = input("Enter your choice (1, 2, 3, 4, 5, 6 or 7): ") #added 7
+        if choice in ("1", "2", "3", "4", "5", "6", "7"):  # changed to 7
             return choice
         else:
-            print("Invalid choice. Please enter 1, 2, 3, 4, 5, or 6.")  
-
+            print("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, or 7.") #changed
 
 # monster code
 def new_random_monster():
@@ -30,7 +33,7 @@ def new_random_monster():
     returns sel_health, sel_money, sel_monster, sel_scenario
     """
     monsters = ["demon", "ghost", "goblin", "creeper"]
-    health = random.randint(10, 30)  
+    health = random.randint(10, 30)
     sel_money = random.randint(5, 20)
     power = random.randint(1, 3)
     sel_health = health * power  # lowered power var
@@ -47,14 +50,14 @@ def new_random_monster():
 
 
 # Fighting code
-def handle_fight(player_hp, gold, inventory, equipped_weapon, equipped_shield):  
+def handle_fight(player_hp, gold, inventory, equipped_weapon, equipped_shield):
     """Code for handling health and fights within the game.
 
     called by using handle_fight(player_hp, gold)
     """
     monster_hp, monster_gold, monster_type, scenario = new_random_monster()  # use new random monster
-    monster_attack = random.randint(5, 12)  
-    print(scenario)  
+    monster_attack = random.randint(5, 12)
+    print(scenario)
     print(f"A wild {monster_type} appears!")
     print(f"Monster HP: {monster_hp}")  #
 
@@ -63,8 +66,8 @@ def handle_fight(player_hp, gold, inventory, equipped_weapon, equipped_shield):
         choice = get_user_fight_options(inventory)  # inventory
 
         if choice == "1":
-            player_attack = random.randint(5, 15)  
-            if equipped_weapon:  
+            player_attack = random.randint(5, 15)
+            if equipped_weapon:
                 player_attack += equipped_weapon["damage"]
                 print(f"Your {equipped_weapon['name']} adds {equipped_weapon['damage']} damage!")
             monster_hp -= player_attack
@@ -73,7 +76,7 @@ def handle_fight(player_hp, gold, inventory, equipped_weapon, equipped_shield):
             if monster_hp > 0:
                 monster_damage = random.randint(1, monster_attack)
                 if equipped_shield:
-                    monster_damage -= equipped_shield["defense"]  
+                    monster_damage -= equipped_shield["defense"]
                     print(f"Your {equipped_shield['name']} reduces damage by {equipped_shield['defense']}!")
                 if monster_damage < 0:
                     monster_damage = 0
@@ -97,7 +100,7 @@ def handle_fight(player_hp, gold, inventory, equipped_weapon, equipped_shield):
                         print(f"Equipped {equipped_shield['name']}.")
             else:
                 print("Invalid item type.")
-        elif choice == "4": # consumable
+        elif choice == "4": #consumable
             consumable_used = use_consumable(inventory, monster_hp)
             if consumable_used == -1000:
                 monster_hp = 0
@@ -133,11 +136,11 @@ def get_user_fight_options(inventory):  # inventory
         print("2) Run Away")
         print("3) Equip Item")  # equip
         print("4) Use Consumable")
-        choice = input("Enter your choice (1, 2, 3, or 4): ")  
-        if choice in ("1", "2", "3", "4"): 
+        choice = input("Enter your choice (1, 2, 3, or 4): ")
+        if choice in ("1", "2", "3", "4"):
             return choice
         else:
-            print("Invalid choice. Please enter 1, 2, 3, or 4.")  
+            print("Invalid choice. Please enter 1, 2, 3, or 4.")
 
 
 # Nap time code
@@ -183,14 +186,15 @@ called with create_"item","""
 def create_sword(name="Basic Sword", max_durability=10, damage=5, price=10):
     """Creates a sword item.
 
-    called with create_sword"""
-    
+    called with create_sword
+    """
+
     return {
         "name": name,
         "type": "weapon",
         "maxDurability": max_durability,
         "currentDurability": max_durability,
-        "damage": damage,  
+        "damage": damage,
         "price": price,
     }
 
@@ -209,13 +213,13 @@ def create_anthrax_dart(name="Anthrax Dart", effect="instant_kill", price=20):
 def create_shield(name="Basic Shield", max_durability=6, defense=3, price=15):
     """Creates a shield item.
     called with create_shield"""
-    
+
     return {
         "name": name,
         "type": "shield",
         "maxDurability": max_durability,
         "currentDurability": max_durability,
-        "defense": defense, 
+        "defense": defense,
         "price": price,
     }
 
@@ -248,7 +252,7 @@ def create_shop_items():
 def display_shop(shop_items):
     """Displays the items available in the shop.
     display_shop"""
-    
+
     print("/" + "-" * 38 + "\\")
     print(f"|{'Index':<5}{'Item':<15}{'Type':<12}{'Price':>6}|")
     print("|" + "-" * 38 + "|")
@@ -281,11 +285,11 @@ def purchase_item(inventory, shop_items, item_index, player_gold):
 
 
 #inventory stuff
-    
+
 def equip_item(inventory, item_type):
     """Equips an item of a specific type from inventory.
     equip_item(inventory, item_type):"""
-    
+
     items = [i for i in inventory if i["type"] == item_type]
     if not items:
         print(f"No {item_type} items.")
@@ -318,7 +322,7 @@ def equip_item(inventory, item_type):
 def display_inventory(inventory):
     """Displays the items in the user's inventory.
     display_inventory(inventory)"""
-    
+
     if not inventory:
         print("Your inventory is empty.")
         return
@@ -341,7 +345,7 @@ def display_inventory(inventory):
 
 def use_consumable(inventory, monster_hp):
     """Allows the player to use a consumable item from their inventory.
-    
+
     use_consumable(inventory, monster_hp)"""
     consumables = [item for item in inventory if item["type"] == "consumable"]
     if not consumables:
@@ -357,7 +361,7 @@ def use_consumable(inventory, monster_hp):
         try:
             choice = int(input("Choice: "))
             if choice == 0:
-                return None  
+                return None
             elif 1 <= choice <= len(consumables):
                 selected_consumable = consumables[choice - 1]
                 if selected_consumable["effect"] == "instant_kill":
@@ -366,37 +370,112 @@ def use_consumable(inventory, monster_hp):
                     inventory.remove(selected_consumable)
                     return -1000 #indicate monster death
                 elif selected_consumable["effect"] == "heal":
-                    heal_amount = 10  
+                    heal_amount = 10
                     player_hp += heal_amount
                     print(f"You used {selected_consumable['name']} and healed {heal_amount} HP.")
                     inventory.remove(selected_consumable)
                     return player_hp
                 else:
-                    print("Unknown consumable effect.") 
+                    print("Unknown consumable effect.")
                     return None
             else:
                 print("Invalid choice.")
         except ValueError:
             print("Invalid input. Please enter a number.")
 
+def save_game(player_hp, player_gold, inventory, equipped_weapon, equipped_shield, filename): # removed default
+    """Saves the current game state to a JSON file.
+
+    save_game(player_hp, player_gold, inventory, equipped_weapon, equipped_shield, filename)
+    """
+    game_data = {
+        "player_hp": player_hp,
+        "player_gold": player_gold,
+        "inventory": inventory,
+        "equipped_weapon": equipped_weapon,
+        "equipped_shield": equipped_shield
+    }
+    try:
+        with open(filename, "w") as f:
+            json.dump(game_data, f, indent=4)
+        print(f"Game saved to {filename}")
+        return True
+    except Exception as e:
+        print(f"Error saving game: {e}")
+        return False
+
+def load_game(filename): # removed default
+    """Loads a saved game state from a JSON file.
+
+    load_game(filename)
+    """
+    if not os.path.exists(filename):
+        print(f"Save file not found: {filename}")
+        return None, None, None, None, None
+    try:
+        with open(filename, "r") as f:
+            game_data = json.load(f)
+        print(f"Game loaded from {filename}")
+        player_hp = game_data.get("player_hp", 30)
+        player_gold = game_data.get("player_gold", 100)
+        inventory = game_data.get("inventory", [])
+        equipped_weapon = game_data.get("equipped_weapon", None)
+        equipped_shield = game_data.get("equipped_shield", None)
+        return player_hp, player_gold, inventory, equipped_weapon, equipped_shield
+    except Exception as e:
+        print(f"Error loading game: {e}")
+        return None, None, None, None, None
+
 def main():
-    """Main game function."""
-    player_hp = 30
-    player_gold = 100
-    inventory = []
-    shop_items = create_shop_items()
-    equipped_weapon = None  # Keep track of equipped weapon
-    equipped_shield = None  # Keep track of equipped shield
+    """Main game function.
+    something is off in here...
+
+    gamefunctions.main()"""
+   
+    
+    shop_items = create_shop_items() #made sure shop items are created.
 
     print("Welcome to the Town Adventure!")
+    print("1) Start New Game")
+    print("2) Load Game")
+    choice = input("Enter your choice (1 or 2): ")
+
+    if choice == "2":
+        filename = input("Enter filename to load game: ") #get filename
+        player_hp, player_gold, inventory, equipped_weapon, equipped_shield = load_game(filename)
+        if player_hp is None:
+            print("Failed to load game, starting a new game.")
+            player_hp = 30
+            player_gold = 100
+            inventory = []
+            equipped_weapon = None
+            equipped_shield = None
+    elif choice == "1": #added elif
+        player_hp = 30
+        player_gold = 100
+        inventory = []
+        equipped_weapon = None
+        equipped_shield = None
+    else: #added else
+        print("Invalid choice. Exiting.")
+        return
+    
+    #if load fails, start new game
+    if player_hp is None:
+        player_hp = 30
+        player_gold = 100
+        inventory = []
+        equipped_weapon = None
+        equipped_shield = None
+    
 
     while True:
-        choice = get_user_town_choice(player_hp, player_gold, inventory)  
+        choice = get_user_town_choice(player_hp, player_gold, inventory)
 
         if choice == "1":
             player_hp, player_gold, equipped_weapon, equipped_shield = handle_fight(
                 player_hp, player_gold, inventory, equipped_weapon, equipped_shield
-            )  
+            )
             if player_hp <= 0:
                 print("Game Over!")
                 break
@@ -413,15 +492,18 @@ def main():
                             "Enter the index of the item to purchase (or 0 to cancel): "
                         )
                     )
-                    if item_index == 0:
-                        break  
-                    purchase_successful, player_gold = purchase_item(
-                        inventory, shop_items, item_index, player_gold
-                    )
-                    if purchase_successful:
-                        break  # Exit 
                 except ValueError:
                     print("Invalid input. Please enter a number.")
+                    continue  # Go back 
+
+                if item_index == 0:
+                    break 
+                purchase_successful, player_gold = purchase_item(
+                    inventory, shop_items, item_index, player_gold
+                )
+                if purchase_successful:
+                    break  
+
         elif choice == "5":  # Equip
             item_type = input("Enter the type of item to equip (weapon/shield): ").lower()
             if item_type in ("weapon", "shield"):
@@ -435,16 +517,19 @@ def main():
                         print(f"Equipped {equipped_shield['name']}.")
             else:
                 print("Invalid item type.")
-        elif choice == "6":  # Quit
+        elif choice == "6":  # Save and Quit
+            filename = input("Enter filename to save game: ") #get filename
+            if save_game(player_hp, player_gold, inventory, equipped_weapon, equipped_shield, filename):
+                break
+            else:
+                print("Save failed, continuing game.")
+        elif choice == "7":  # Quit
             print("Thank you for playing!")
             break
 
-        # mini main loop simplify main w. this?
+        
         if player_hp <= 0:
             print("Game Over!")
             break
 
-
-if __name__ == "__main__":
-    main()
 
