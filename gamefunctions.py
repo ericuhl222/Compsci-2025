@@ -3,7 +3,12 @@ import pygame
 import os
 import json
 import sys
+import time
 from wanderingMonster import WanderingMonster
+
+
+PLAYER_IMAGE_PATH = "heroicslob.png"
+MONSTER_IMAGE_PATH = "crazy frog.png"
 
 # Constants
 GRID_SIZE = 10
@@ -14,9 +19,8 @@ SCREEN_HEIGHT = GRID_SIZE * SQUARE_SIZE
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
+BLACK = (0, 0, 0)
 SAVE_FILE = "game_save.json"
-
-# ... (Helper functions like get_user_town_choice, print_shop_menu, create_sword, etc. would go here)
 
 # Item creation functions
 def create_sword(name="Basic Sword", max_durability=10, damage=5, price=10):
@@ -125,7 +129,7 @@ def equip_item(inventory, item_type):
             print("Invalid.")
         except ValueError:
             print("Number please.")
-            
+
 def use_consumable(inventory, monster_hp):
     """Allows the player to use a consumable item from their inventory."""
     consumables = [item for item in inventory if item["type"] == "consumable"]
@@ -144,7 +148,6 @@ def use_consumable(inventory, monster_hp):
             if choice == 0:
                 return None
             elif 1 <= choice <= len(consumables):
-                selected_consumable = consumables[choice - 1]
                 selected_consumable = consumables[choice - 1]
                 if selected_consumable["effect"] == "instant_kill":
                     print(f"You used {selected_consumable['name']}!")
@@ -240,6 +243,8 @@ def handle_fight(player_hp, player_gold, inventory, equipped_weapon, equipped_sh
                     player_hp = used_consumable
                 else:
                     print("No consumable used.")
+            else:
+                print("Your inventory is empty.")
         elif player_choice == "3": #run
             chance = random.randint(0,1)
             if chance == 0:
@@ -258,13 +263,13 @@ def handle_fight(player_hp, player_gold, inventory, equipped_weapon, equipped_sh
             display_inventory(inventory)
         elif player_choice == "5": #equip
             if inventory:
-                 equipped_weapon = equip_item(inventory, "weapon")
+                equipped_weapon = equip_item(inventory, "weapon")
             else:
-                 print("No weapons to equip")
+                print("No weapons to equip")
             if inventory:
-                 equipped_shield = equip_item(inventory, "shield")
+                equipped_shield = equip_item(inventory, "shield")
             else:
-                 print("No shields to equip")
+                print("No shields to equip")
         else:
             print("Invalid choice!")
         if monster.health <= 0:
@@ -289,8 +294,9 @@ def get_user_fight_options(inventory):
     choice = input("Enter your choice: ")
     return choice
 
+
 def game_map(player_position, monsters, player_data):
-    """Handles the game map screen and movement."""
+    """Handles the game map screen and movement with PNG loading and fallback."""
     pygame.init()
     try:
         screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -306,81 +312,150 @@ def game_map(player_position, monsters, player_data):
     equipped_weapon = None
     equipped_shield = None
 
+    player_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE))
+    player_surface.fill(BLACK)  # Fallback: black rectangle
+    player_image_loaded = False
+
+    monster_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE))
+    monster_surface.fill(RED)  # Fallback: red rectangle
+    monster_image_loaded = False
+
+    try:
+        player_image = pygame.image.load(PLAYER_IMAGE_PATH).convert_alpha()
+        player_surface = pygame.transform.scale(player_image, (SQUARE_SIZE, SQUARE_SIZE))
+        player_image_loaded = True
+    except FileNotFoundError:
+        print(f"Warning: Player image '{PLAYER_IMAGE_PATH}' not found. Using black rectangle.")
+    except pygame.error as e:
+        print(f"Warning: Error loading player image: {e}. Using black rectangle.")
+
+    try:
+        monster_image = pygame.image.load(MONSTER_IMAGE_PATH).convert_alpha()
+        monster_surface = pygame.transform.scale(monster_image, (SQUARE_SIZE, SQUARE_SIZE))
+        monster_image_loaded = True
+    except FileNotFoundError:
+        print(f"Warning: Monster image '{MONSTER_IMAGE_PATH}' not found. Using red rectangle.")
+    except pygame.error as e:
+        print(f"Warning: Error loading monster image: {e}. Using red rectangle.")
+
     while running:
+        # Check for attack before player moves
+        for monster in list(monsters):
+            monster_x, monster_y = monster.get_location()
+            player_x, player_y = player_position
+            if (abs(monster_x - player_x) + abs(monster_y - player_y) == 1):
+                print(f"A {monster.name} attacks!")
+                player_hp, player_gold, fight_won = handle_fight(player_data['hp'], player_data['gold'], player_data['inventory'], equipped_weapon, equipped_shield, monster)
+                player_data['hp'] = player_hp
+                player_data['gold'] = player_gold
+                if fight_won:
+                    monsters.remove(monster)
+                    new_monster = WanderingMonster.new_random_monster(exclude_locations=[player_position] + [m.get_location() for m in monsters])
+                    monsters.append(new_monster)
+                    print(f"A {new_monster.name} has respawned!")
+                else:
+                    return "quit"
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
                 return "quit"
             elif event.type == pygame.KEYDOWN:
+                new_player_position = list(player_position)
+
                 if event.key == pygame.K_LEFT:
-                    player_position = (max(0, player_position[0] - 1), player_position[1])
+                    new_player_position[0] = max(0, player_position[0] - 1)
                 elif event.key == pygame.K_RIGHT:
-                    player_position = (min(GRID_SIZE - 1, player_position[0] + 1), player_position[1])
+                    new_player_position[0] = min(GRID_SIZE - 1, player_position[0] + 1)
                 elif event.key == pygame.K_UP:
-                    player_position = (player_position[0], max(0, player_position[1] - 1))
+                    new_player_position[1] = max(0, player_position[1] - 1)
                 elif event.key == pygame.K_DOWN:
-                    player_position = (player_position[0], min(GRID_SIZE - 1, player_position[1] + 1))
+                    new_player_position[1] = min(GRID_SIZE - 1, player_position[1] + 1)
                 elif event.key == pygame.K_RETURN and player_position == TOWN_LOCATION:
                     return "town"
 
-        # Corrected line:  Creating a new Rect, not assigning to topleft.
-        player_rect = pygame.Rect(player_position[0] * SQUARE_SIZE, player_position[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+                if tuple(new_player_position) != player_position:
+                    player_position = tuple(new_player_position)
+                    player_rect = pygame.Rect(player_position[0] * SQUARE_SIZE, player_position[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+                    occupied_locations = [player_position] + [monster.get_location() for monster in monsters]
+                    for monster in monsters:
+                        monster_x, monster_y = monster.get_location()
+                        player_x, player_y = player_position
 
-        # Collision detection and combat
-        monsters_to_remove = []  # Keep track of defeated monsters
+                        if (abs(monster_x - player_x) + abs(monster_y - player_y) == 1):
+                            dx = player_x - monster_x
+                            dy = player_y - monster_y
+
+                            possible_moves = []
+                            if dx > 0 and monster_x < GRID_SIZE - 1:
+                                possible_moves.append("right")
+                            elif dx < 0 and monster_x > 0:
+                                possible_moves.append("left")
+                            if dy > 0 and monster_y < GRID_SIZE - 1:
+                                possible_moves.append("down")
+                            elif dy < 0 and monster_y > 0:
+                                possible_moves.append("up")
+
+                            if possible_moves:
+                                move_towards = random.choice(possible_moves)
+                                monster.move(move_towards, occupied_locations)
+                            else:
+                                direction = random.choice(["up", "down", "left", "right"])
+                                monster.move(direction, occupied_locations)
+                        else:
+                            direction = random.choice(["up", "down", "left", "right"])
+                            monster.move(direction, occupied_locations)
+
+        monsters_to_remove = []
 
         for monster in monsters:
             monster_rect = pygame.Rect(monster.get_location()[0] * SQUARE_SIZE, monster.get_location()[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
             if player_rect.colliderect(monster_rect):
                 print(f"You encountered a {monster.name}!")
-                # Pass necessary data to handle_fight
                 player_hp, player_gold, fight_won = handle_fight(player_data['hp'], player_data['gold'], player_data['inventory'], equipped_weapon, equipped_shield, monster)
                 player_data['hp'] = player_hp
                 player_data['gold'] = player_gold
                 if fight_won:
-                    monsters_to_remove.append(monster)  # Add defeated monster to removal list
+                    monsters_to_remove.append(monster)
+                    new_monster = WanderingMonster.new_random_monster(exclude_locations=[player_position] + [m.get_location() for m in monsters])
+                    monsters.append(new_monster)
+                    print(f"A {new_monster.name} has respawned!")
                 else:
-                    return "quit" #game over
+                    return "quit"
 
-        # Remove defeated monsters after the loop
         for monster in monsters_to_remove:
             monsters.remove(monster)
 
         screen.fill(WHITE)
 
-        try:
-            pygame.draw.rect(screen, GREEN, pygame.Rect(TOWN_LOCATION[0] * SQUARE_SIZE, TOWN_LOCATION[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
-            pygame.draw.circle(screen, GREEN, pygame.Rect(TOWN_LOCATION[0] * SQUARE_SIZE, TOWN_LOCATION[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE).center, SQUARE_SIZE // 4)
-        except Exception as e:
-            print(f"ERROR: pygame draw town error: {e}")
-            return "quit"
+        # Draw Town
+        pygame.draw.rect(screen, GREEN, pygame.Rect(TOWN_LOCATION[0] * SQUARE_SIZE, TOWN_LOCATION[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
+        pygame.draw.circle(screen, GREEN, (TOWN_LOCATION[0] * SQUARE_SIZE + SQUARE_SIZE // 2, TOWN_LOCATION[1] * SQUARE_SIZE + SQUARE_SIZE // 2), SQUARE_SIZE // 4)
 
+        # Draw Monsters
         for monster in monsters:
-            if not isinstance(monster.get_location(), tuple) or len(monster.get_location()) != 2:
-                print(f"DEBUG: ERROR: Monster location is not a tuple: {monster.get_location()}")
-                return "quit"
-            try:
-                monster_rect = pygame.Rect(monster.get_location()[0] * SQUARE_SIZE, monster.get_location()[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
-                pygame.draw.rect(screen, monster.color, monster_rect)
-            except Exception as e:
-                print(f"ERROR: pygame draw monster error: {e}")
-                return "quit"
+            monster_rect = pygame.Rect(monster.get_location()[0] * SQUARE_SIZE, monster.get_location()[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+            if monster_image_loaded:
+                screen.blit(monster_surface, monster_rect)
+            else:
+                pygame.draw.rect(screen, RED, monster_rect)
 
-        try:
-            pygame.draw.rect(screen, (0, 0, 255), player_rect)
-        except Exception as e:
-            print(f"ERROR: pygame draw player error: {e}")
-            return "quit"
+        # Draw Player
+        if player_image_loaded:
+            screen.blit(player_surface, player_rect)
+        else:
+            screen.blit(player_surface, player_rect) # player_surface is already a black rectangle
 
         try:
             pygame.display.flip()
         except Exception as e:
             print(f"ERROR: pygame.display.flip() error: {e}")
             return "quit"
-        
-        #update player position.
+
         player_data["x"] = player_position[0]
         player_data["y"] = player_position[1]
+
+    return "quit"
 
 def save_game(player_data, monsters, save_name):
     """Saves the current game state to a JSON file."""
@@ -529,5 +604,4 @@ def main():
 
     town(player_data, monsters)
 
-if __name__ == "__main__":
-    main()
+
