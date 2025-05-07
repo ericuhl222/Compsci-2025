@@ -6,7 +6,6 @@ import sys
 import time
 from wanderingMonster import WanderingMonster
 
-
 PLAYER_IMAGE_PATH = "heroicslob.png"
 MONSTER_IMAGE_PATH = "crazy frog.png"
 
@@ -153,10 +152,10 @@ def use_consumable(inventory, monster_hp):
                     print(f"You used {selected_consumable['name']}!")
                     print("The monster was instantly killed!")
                     inventory.remove(selected_consumable)
-                    return -1000 #indicate monster death
+                    return -1000  # indicate monster death
                 elif selected_consumable["effect"] == "heal":
                     heal_amount = consumables[choice - 1]["heal_amount"]
-                    player_hp = 30 #set player hp to max.
+                    player_hp = 30  # set player hp to max.
                     print(f"You used {selected_consumable['name']} and healed {heal_amount} HP.")
                     inventory.remove(selected_consumable)
                     return player_hp
@@ -175,11 +174,27 @@ def display_inventory(inventory):
     else:
         print("Your inventory contains:")
         for i, item in enumerate(inventory):
-            print(f"{i+1}. {item['name']} ({item['type']})") #basic display.  Can be expanded.
+            print(f"{i + 1}. {item['name']} ({item['type']})")  # basic display.  Can be expanded.
 
-def handle_fight(player_hp, player_gold, inventory, equipped_weapon, equipped_shield, monster):
+def handle_fight(
+    player_hp,
+    player_gold,
+    inventory,
+    equipped_weapon,
+    equipped_shield,
+    monster,
+    player_attack,
+    monsters_defeated,
+):
     """Code for handling health and fights within the game."""
-    # ... (Implementation of handle_fight as in the older version)
+
+    def check_item_durability(item):
+        """Checks if an item's durability is 1.4 or less and breaks it if it is."""
+        if item and item["currentDurability"] <= 1.4:
+            print(f"Your {item['name']} broke!")
+            return None  # Item is broken, so return None
+        return item
+
     fight_continues = True
     gold_earned = 0
     while fight_continues:
@@ -188,27 +203,36 @@ def handle_fight(player_hp, player_gold, inventory, equipped_weapon, equipped_sh
 
         if player_choice == "1":  # Attack
             player_damage = 0
-            if equipped_weapon and equipped_weapon["currentDurability"] > 0:
-                player_damage = random.randint(1, equipped_weapon["damage"])
-                equipped_weapon["currentDurability"] -= 1
-                print(f"Your {equipped_weapon['name']} adds {equipped_weapon['damage']} damage!")
-                if equipped_weapon["currentDurability"] <= 0:
-                    print(f"Your {equipped_weapon['name']} broke!")
-                    equipped_weapon = None
+            if equipped_weapon:
+                equipped_weapon = check_item_durability(equipped_weapon)
+                if equipped_weapon:
+                    player_damage = random.randint(1, equipped_weapon["damage"])
+                    equipped_weapon["currentDurability"] -= 1
+                    print(f"Your {equipped_weapon['name']} adds {equipped_weapon['damage']} damage!")
+                    equipped_weapon = check_item_durability(equipped_weapon)  # Check again after use
+                    if not equipped_weapon:
+                        equipped_weapon = None  # Actually unequip the item
+                else:
+                    equipped_weapon = None  # Ensure it's unequipped
             else:
                 player_damage = random.randint(1, 3)  # Unarmed damage
+            player_damage = int(player_damage * player_attack)  # Apply player's attack multiplier
 
             # Monster's attack is reduced here
-            monster_damage = random.randint(1, max(1, monster.attack - 3))  # Reduced monster attack.  Original was 2, changed to 3.
+            monster_damage = random.randint(1, max(1, monster.attack - 3))
 
             # Apply defense
-            if equipped_shield and equipped_shield["currentDurability"] > 0:
-                monster_damage = max(1, monster_damage - equipped_shield["defense"])  # At least 1 damage
-                equipped_shield["currentDurability"] -= random.uniform(0.5,1)
-                print(f"Your {equipped_shield['name']} reduces damage by {equipped_shield['defense']}!")
-                if equipped_shield["currentDurability"] <= 0:
-                    print(f"Your {equipped_shield['name']} broke!")
-                    equipped_shield = None
+            if equipped_shield:
+                equipped_shield = check_item_durability(equipped_shield)
+                if equipped_shield:
+                    monster_damage = max(1, monster_damage - equipped_shield["defense"])  # At least 1 damage
+                    equipped_shield["currentDurability"] -= random.uniform(0.5, 1)
+                    print(f"Your {equipped_shield['name']} reduces damage by {equipped_shield['defense']}!")
+                    equipped_shield = check_item_durability(equipped_shield)  # Check again after use
+                    if not equipped_shield:
+                        equipped_shield = None  # Actually unequip the item
+                else:
+                    equipped_shield = None  # Ensure it's unequipped
 
             monster.health -= player_damage
             player_hp -= monster_damage
@@ -218,17 +242,22 @@ def handle_fight(player_hp, player_gold, inventory, equipped_weapon, equipped_sh
 
             if monster.health <= 0 and player_hp <= 0:
                 print("You and the monster died at the same time.")
-                return 0, player_gold, False  # Game over
+                return 0, player_gold, False, player_attack, monsters_defeated  # Game over
             elif monster.health <= 0:
                 print("You defeated the monster!")
                 gold_earned = monster.gold
                 player_gold += monster.gold  # Award gold
                 fight_continues = False
-                return player_hp, player_gold, True  # Return True for won fight
+                monsters_defeated += 1
+                if monsters_defeated % 3 == 0:
+                    player_attack *= 1.11
+                    print(f"Your attack increased to {player_attack:.2f}!")
+
+                return player_hp, player_gold, True, player_attack, monsters_defeated  # Return True for won fight
             elif player_hp <= 0:
                 print("You were defeated!")
                 fight_continues = False
-                return 0, player_gold, False #return false for lost fight
+                return 0, player_gold, False, player_attack, monsters_defeated  # return false for lost fight
         elif player_choice == "2":  # Use consumable
             if inventory:
                 used_consumable = use_consumable(inventory, monster.health)
@@ -237,31 +266,34 @@ def handle_fight(player_hp, player_gold, inventory, equipped_weapon, equipped_sh
                     fight_continues = False
                     gold_earned = monster.gold
                     player_gold += monster.gold  # Award gold
-                    print(f"You gained {monster.gold} gold!") #added
-                    return player_hp, player_gold, True # Monster killed, player wins.
+                    print(f"You gained {monster.gold} gold!")
+                    monsters_defeated += 1
+                    if monsters_defeated % 3 == 0:
+                        player_attack *= 1.11
+                        print(f"Your attack increased to {player_attack:.2f}!")
+                    return player_hp, player_gold, True, player_attack, monsters_defeated  # Monster killed, player wins.
                 elif used_consumable:
                     player_hp = used_consumable
                 else:
                     print("No consumable used.")
             else:
                 print("Your inventory is empty.")
-        elif player_choice == "3": #run
-            chance = random.randint(0,1)
+        elif player_choice == "3":  # run
+            chance = random.randint(0, 1)
             if chance == 0:
                 print("You successfully ran away!")
-                return player_hp, player_gold, True #return true so player doesn't lose hp.
+                return player_hp, player_gold, True, player_attack, monsters_defeated  # return true so player doesn't lose hp.
             else:
-                # Monster's attack is reduced here
-                monster_damage = random.randint(1, max(1, monster.attack - 3)) #reduced from 2 to 3
+                monster_damage = random.randint(1, max(1, monster.attack - 3))
                 player_hp -= monster_damage
                 print("Failed to run away")
                 print(f"Monster dealt {monster_damage} damage!")
                 if player_hp <= 0:
                     print("You were defeated!")
-                    return 0, player_gold, False
+                    return 0, player_gold, False, player_attack, monsters_defeated
         elif player_choice == "4":
             display_inventory(inventory)
-        elif player_choice == "5": #equip
+        elif player_choice == "5":  # equip
             if inventory:
                 equipped_weapon = equip_item(inventory, "weapon")
             else:
@@ -276,7 +308,13 @@ def handle_fight(player_hp, player_gold, inventory, equipped_weapon, equipped_sh
             fight_continues = False
     if gold_earned > 0:
         print(f"You gained {gold_earned} gold!")
-    return player_hp, player_gold, False #this should never be reached.
+    return (
+        player_hp,
+        player_gold,
+        False,
+        player_attack,
+        monsters_defeated,
+    )# this should never be reached.
 
 def display_fight_statistics(player_hp, monster_hp):
     """Displays the current HP of the player and monster."""
@@ -294,23 +332,24 @@ def get_user_fight_options(inventory):
     choice = input("Enter your choice: ")
     return choice
 
-
-def game_map(player_position, monsters, player_data):
+def game_map(player_position, monsters, player_data, equipped_weapon, equipped_shield):
     """Handles the game map screen and movement with PNG loading and fallback."""
     pygame.init()
     try:
         screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     except pygame.error as e:
         print(f"ERROR: pygame display error: {e}")
-        return "quit"
+        return "quit", equipped_weapon, equipped_shield
 
     pygame.display.set_caption("Game Map")
 
     running = True
-    player_rect = pygame.Rect(player_position[0] * SQUARE_SIZE, player_position[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
-
-    equipped_weapon = None
-    equipped_shield = None
+    player_rect = pygame.Rect(
+        player_position[0] * SQUARE_SIZE,
+        player_position[1] * SQUARE_SIZE,
+        SQUARE_SIZE,
+        SQUARE_SIZE,
+    )
 
     player_surface = pygame.Surface((SQUARE_SIZE, SQUARE_SIZE))
     player_surface.fill(BLACK)  # Fallback: black rectangle
@@ -322,67 +361,116 @@ def game_map(player_position, monsters, player_data):
 
     try:
         player_image = pygame.image.load(PLAYER_IMAGE_PATH).convert_alpha()
-        player_surface = pygame.transform.scale(player_image, (SQUARE_SIZE, SQUARE_SIZE))
+        player_surface = pygame.transform.scale(
+            player_image, (SQUARE_SIZE, SQUARE_SIZE)
+        )
         player_image_loaded = True
     except FileNotFoundError:
-        print(f"Warning: Player image '{PLAYER_IMAGE_PATH}' not found. Using black rectangle.")
+        print(
+            f"Warning: Player image '{PLAYER_IMAGE_PATH}' not found. Using black rectangle."
+        )
     except pygame.error as e:
-        print(f"Warning: Error loading player image: {e}. Using black rectangle.")
+        print(
+            f"Warning: Error loading player image: {e}. Using black rectangle."
+        )
 
     try:
         monster_image = pygame.image.load(MONSTER_IMAGE_PATH).convert_alpha()
-        monster_surface = pygame.transform.scale(monster_image, (SQUARE_SIZE, SQUARE_SIZE))
+        monster_surface = pygame.transform.scale(
+            monster_image, (SQUARE_SIZE, SQUARE_SIZE)
+        )
         monster_image_loaded = True
     except FileNotFoundError:
-        print(f"Warning: Monster image '{MONSTER_IMAGE_PATH}' not found. Using red rectangle.")
+        print(
+            f"Warning: Monster image '{MONSTER_IMAGE_PATH}' not found. Using red rectangle."
+        )
     except pygame.error as e:
-        print(f"Warning: Error loading monster image: {e}. Using red rectangle.")
+        print(
+            f"Warning: Error loading monster image: {e}. Using red rectangle."
+        )
+
+    monsters_defeated = player_data.get("monsters_defeated", 0)  # Load or initialize monster defeats
+    player_attack = player_data.get("attack", 1)  # Load or initialize player attack
 
     while running:
         # Check for attack before player moves
         for monster in list(monsters):
             monster_x, monster_y = monster.get_location()
             player_x, player_y = player_position
-            if (abs(monster_x - player_x) + abs(monster_y - player_y) == 1):
+            if abs(monster_x - player_x) + abs(monster_y - player_y) == 1:
                 print(f"A {monster.name} attacks!")
-                player_hp, player_gold, fight_won = handle_fight(player_data['hp'], player_data['gold'], player_data['inventory'], equipped_weapon, equipped_shield, monster)
-                player_data['hp'] = player_hp
-                player_data['gold'] = player_gold
+                (
+                    player_hp,
+                    player_gold,
+                    fight_won,
+                    player_attack,
+                    monsters_defeated,
+                ) = handle_fight(
+                    player_data["hp"],
+                    player_data["gold"],
+                    player_data["inventory"],
+                    equipped_weapon,
+                    equipped_shield,
+                    monster,
+                    player_attack,
+                    monsters_defeated,
+                )
+                player_data["hp"] = player_hp
+                player_data["gold"] = player_gold
+                player_data["attack"] = player_attack
+                player_data["monsters_defeated"] = monsters_defeated
                 if fight_won:
                     monsters.remove(monster)
-                    new_monster = WanderingMonster.new_random_monster(exclude_locations=[player_position] + [m.get_location() for m in monsters])
+                    new_monster = WanderingMonster.new_random_monster(
+                        exclude_locations=[player_position]
+                        + [m.get_location() for m in monsters]
+                    )
                     monsters.append(new_monster)
                     print(f"A {new_monster.name} has respawned!")
                 else:
-                    return "quit"
+                    return "quit", equipped_weapon, equipped_shield
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                return "quit"
+                return "quit", equipped_weapon, equipped_shield
             elif event.type == pygame.KEYDOWN:
                 new_player_position = list(player_position)
 
                 if event.key == pygame.K_LEFT:
                     new_player_position[0] = max(0, player_position[0] - 1)
                 elif event.key == pygame.K_RIGHT:
-                    new_player_position[0] = min(GRID_SIZE - 1, player_position[0] + 1)
+                    new_player_position[0] = min(
+                        GRID_SIZE - 1, player_position[0] + 1
+                    )
                 elif event.key == pygame.K_UP:
                     new_player_position[1] = max(0, player_position[1] - 1)
                 elif event.key == pygame.K_DOWN:
-                    new_player_position[1] = min(GRID_SIZE - 1, player_position[1] + 1)
+                    new_player_position[1] = min(
+                        GRID_SIZE - 1, player_position[1] + 1
+                    )
                 elif event.key == pygame.K_RETURN and player_position == TOWN_LOCATION:
-                    return "town"
+                    return "town", equipped_weapon, equipped_shield
 
                 if tuple(new_player_position) != player_position:
                     player_position = tuple(new_player_position)
-                    player_rect = pygame.Rect(player_position[0] * SQUARE_SIZE, player_position[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
-                    occupied_locations = [player_position] + [monster.get_location() for monster in monsters]
+                    player_rect = pygame.Rect(
+                        player_position[0] * SQUARE_SIZE,
+                        player_position[1] * SQUARE_SIZE,
+                        SQUARE_SIZE,
+                        SQUARE_SIZE,
+                    )
+                    occupied_locations = [player_position] + [
+                        monster.get_location() for monster in monsters
+                    ]
                     for monster in monsters:
                         monster_x, monster_y = monster.get_location()
                         player_x, player_y = player_position
 
-                        if (abs(monster_x - player_x) + abs(monster_y - player_y) == 1):
+                        if (
+                            abs(monster_x - player_x) + abs(monster_y - player_y)
+                            == 1
+                        ):
                             dx = player_x - monster_x
                             dy = player_y - monster_y
 
@@ -400,28 +488,57 @@ def game_map(player_position, monsters, player_data):
                                 move_towards = random.choice(possible_moves)
                                 monster.move(move_towards, occupied_locations)
                             else:
-                                direction = random.choice(["up", "down", "left", "right"])
+                                direction = random.choice(
+                                    ["up", "down", "left", "right"]
+                                )
                                 monster.move(direction, occupied_locations)
                         else:
-                            direction = random.choice(["up", "down", "left", "right"])
+                            direction = random.choice(
+                                ["up", "down", "left", "right"]
+                            )
                             monster.move(direction, occupied_locations)
 
         monsters_to_remove = []
 
         for monster in monsters:
-            monster_rect = pygame.Rect(monster.get_location()[0] * SQUARE_SIZE, monster.get_location()[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+            monster_rect = pygame.Rect(
+                monster.get_location()[0] * SQUARE_SIZE,
+                monster.get_location()[1] * SQUARE_SIZE,
+                SQUARE_SIZE,
+                SQUARE_SIZE,
+            )
             if player_rect.colliderect(monster_rect):
                 print(f"You encountered a {monster.name}!")
-                player_hp, player_gold, fight_won = handle_fight(player_data['hp'], player_data['gold'], player_data['inventory'], equipped_weapon, equipped_shield, monster)
-                player_data['hp'] = player_hp
-                player_data['gold'] = player_gold
+                (
+                    player_hp,
+                    player_gold,
+                    fight_won,
+                    player_attack,
+                    monsters_defeated,
+                ) = handle_fight(
+                    player_data["hp"],
+                    player_data["gold"],
+                    player_data["inventory"],
+                    equipped_weapon,
+                    equipped_shield,
+                    monster,
+                    player_attack,
+                    monsters_defeated,
+                )
+                player_data["hp"] = player_hp
+                player_data["gold"] = player_gold
+                player_data["attack"] = player_attack
+                player_data["monsters_defeated"] = monsters_defeated
                 if fight_won:
                     monsters_to_remove.append(monster)
-                    new_monster = WanderingMonster.new_random_monster(exclude_locations=[player_position] + [m.get_location() for m in monsters])
+                    new_monster = WanderingMonster.new_random_monster(
+                        exclude_locations=[player_position]
+                        + [m.get_location() for m in monsters]
+                    )
                     monsters.append(new_monster)
                     print(f"A {new_monster.name} has respawned!")
                 else:
-                    return "quit"
+                    return "quit", equipped_weapon, equipped_shield
 
         for monster in monsters_to_remove:
             monsters.remove(monster)
@@ -429,12 +546,34 @@ def game_map(player_position, monsters, player_data):
         screen.fill(WHITE)
 
         # Draw Town
-        pygame.draw.rect(screen, GREEN, pygame.Rect(TOWN_LOCATION[0] * SQUARE_SIZE, TOWN_LOCATION[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
-        pygame.draw.circle(screen, GREEN, (TOWN_LOCATION[0] * SQUARE_SIZE + SQUARE_SIZE // 2, TOWN_LOCATION[1] * SQUARE_SIZE + SQUARE_SIZE // 2), SQUARE_SIZE // 4)
+        pygame.draw.rect(
+            screen,
+            GREEN,
+            pygame.Rect(
+                TOWN_LOCATION[0] * SQUARE_SIZE,
+                TOWN_LOCATION[1] * SQUARE_SIZE,
+                SQUARE_SIZE,
+                SQUARE_SIZE,
+            ),
+        )
+        pygame.draw.circle(
+            screen,
+            GREEN,
+            (
+                TOWN_LOCATION[0] * SQUARE_SIZE + SQUARE_SIZE // 2,
+                TOWN_LOCATION[1] * SQUARE_SIZE + SQUARE_SIZE // 2,
+            ),
+            SQUARE_SIZE // 4,
+        )
 
         # Draw Monsters
         for monster in monsters:
-            monster_rect = pygame.Rect(monster.get_location()[0] * SQUARE_SIZE, monster.get_location()[1] * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
+            monster_rect = pygame.Rect(
+                monster.get_location()[0] * SQUARE_SIZE,
+                monster.get_location()[1] * SQUARE_SIZE,
+                SQUARE_SIZE,
+                SQUARE_SIZE,
+            )
             if monster_image_loaded:
                 screen.blit(monster_surface, monster_rect)
             else:
@@ -444,23 +583,43 @@ def game_map(player_position, monsters, player_data):
         if player_image_loaded:
             screen.blit(player_surface, player_rect)
         else:
-            screen.blit(player_surface, player_rect) # player_surface is already a black rectangle
+            screen.blit(
+                player_surface, player_rect
+            )  # player_surface is already a black rectangle
 
         try:
             pygame.display.flip()
         except Exception as e:
             print(f"ERROR: pygame.display.flip() error: {e}")
-            return "quit"
+            return "quit", equipped_weapon, equipped_shield
 
         player_data["x"] = player_position[0]
         player_data["y"] = player_position[1]
 
-    return "quit"
+    return "quit", equipped_weapon, equipped_shield
 
-def save_game(player_data, monsters, save_name):
+def save_game(player_data, monsters, save_name, equipped_weapon, equipped_shield):
     """Saves the current game state to a JSON file."""
     try:
-        monster_data = [{"location": monster.get_location(), "name": monster.name, "health": monster.health, "gold": monster.gold, "color": monster.color, "attack": monster.attack, "defense": monster.defense} for monster in monsters]
+        monster_data = [
+            {
+                "location": monster.get_location(),
+                "name": monster.name,
+                "health": monster.health,
+                "gold": monster.gold,
+                "color": monster.color,
+                "attack": monster.attack,
+                "defense": monster.defense,
+            }
+            for monster in monsters
+        ]
+        # Save equipped item names, or None if not equipped
+        player_data["equipped_weapon"] = (
+            equipped_weapon["name"] if equipped_weapon else None
+        )
+        player_data["equipped_shield"] = (
+            equipped_shield["name"] if equipped_shield else None
+        )
         data = {"player": player_data, "monsters": monster_data}
         filename = f"{save_name}.json"
         with open(filename, "w") as f:
@@ -474,66 +633,114 @@ def load_game(save_name):
     filename = f"{save_name}.json"
     if not os.path.exists(filename):
         print(f"ERROR: Save file {filename} does not exist.")
-        return None, None
+        return None, None, None, None
     try:
         with open(filename, "r") as f:
             data = json.load(f)
         player_data = data["player"]
-        monsters = [WanderingMonster(monster["location"], monster["name"], monster["health"], monster["gold"], tuple(monster["color"]), monster["attack"], monster["defense"]) for monster in data["monsters"]]
+        monsters = [
+            WanderingMonster(
+                monster["location"],
+                monster["name"],
+                monster["health"],
+                monster["gold"],
+                tuple(monster["color"]),
+                monster["attack"],
+                monster["defense"],
+            )
+            for monster in data["monsters"]
+        ]
+        # Load equipped items
+        equipped_weapon = None
+        equipped_shield = None
+        equipped_weapon_name = player_data.get("equipped_weapon")
+        equipped_shield_name = player_data.get("equipped_shield")
+
+        if equipped_weapon_name:
+            for item in player_data["inventory"]:
+                if item["type"] == "weapon" and item["name"] == equipped_weapon_name:
+                    equipped_weapon = item
+                    break  # Stop searching once found
+
+        if equipped_shield_name:
+            for item in player_data["inventory"]:
+                if item["type"] == "shield" and item["name"] == equipped_shield_name:
+                    equipped_shield = item
+                    break
+
         print("Game loaded.")
-        return player_data, monsters
+        return player_data, monsters, equipped_weapon, equipped_shield
     except Exception as e:
         print(f"ERROR: Failed to load game: {e}")
-        return None, None
+        return None, None, None, None
 
-def town(player_data, monsters):
+def town(player_data, monsters, equipped_weapon, equipped_shield):
     """Handles the town screen and player actions in town."""
     dog_happy = False
-    shop_items = create_shop_items() # Create shop items
-    dog_speaks = False #added
+    shop_items = create_shop_items()  # Create shop items
+    dog_speaks = False  # added
 
     while True:
         print("\n--- Town ---")
-        print(f"HP: {player_data['hp']}, Gold: {player_data['gold']}")
+        print(
+            f"HP: {player_data['hp']}, Gold: {player_data['gold']}, Attack: {player_data['attack']:.2f}, Monsters Defeated: {player_data['monsters_defeated']}"
+        )  # Display attack
         print("1) Go to the map")
-        print("2) Sleep at the inn (heal 10 HP, cost 20 gold)")
+        print("2) Sleep at the inn (heal 10 HP, cost 5 gold)")
         print("3) Check inventory")
         print("4) Visit the shop")
         print("5) Save Game")
         print("6) Pet the dog")
-        print("7) Quit")
+        print("7) Go to the Treacherous Wilds")  # New option
+        print("8) Quit")
         choice = input("Enter your choice: ")
 
         if choice == "1":
-            result = game_map((player_data["x"], player_data["y"]), monsters, player_data)
+            (
+                result,
+                equipped_weapon,
+                equipped_shield,
+            ) = game_map(  # Capture returned equipment
+                (player_data["x"], player_data["y"]),
+                monsters,
+                player_data,
+                equipped_weapon,
+                equipped_shield,
+            )
             if result == "quit":
                 return "quit"
             elif result == "town":
                 continue
         elif choice == "2":
-            if player_data["gold"] >= 20:
+            if player_data["gold"] >= 5:
                 player_data["hp"] += 10
-                player_data["gold"] -= 20
+                player_data["gold"] -= 5
                 print("You feel rested.")
-                # Ensure at least one monster, up to two after sleeping.
-                if len(monsters) < 1:
-                    monsters.append(WanderingMonster.new_random_monster())
-                if len(monsters) < 2:
-                    monsters.append(WanderingMonster.new_random_monster())
             else:
                 print("Not enough gold.")
         elif choice == "3":
             display_inventory(player_data["inventory"])
-            if player_data["inventory"]: # only ask if there are items
-                equip_choice = input("Enter the number of the item to equip, or 0 to cancel: ")
+            if player_data["inventory"]:  # only ask if there are items
+                equip_choice = input(
+                    "Enter the number of the item to equip, or 0 to cancel: "
+                )
                 try:
                     equip_choice = int(equip_choice)
-                    if equip_choice > 0 and equip_choice <= len(player_data["inventory"]):
-                        item_to_equip = player_data["inventory"][equip_choice - 1]
+                    if (
+                        equip_choice > 0
+                        and equip_choice <= len(player_data["inventory"])
+                    ):
+                        item_to_equip = player_data["inventory"][
+                            equip_choice - 1
+                        ]
                         if item_to_equip["type"] == "weapon":
-                            equipped_weapon = equip_item(player_data["inventory"], "weapon")
+                            equipped_weapon = equip_item(
+                                player_data["inventory"], "weapon"
+                            )
                         elif item_to_equip["type"] == "shield":
-                            equipped_shield = equip_item(player_data["inventory"], "shield")
+                            equipped_shield = equip_item(
+                                player_data["inventory"], "shield"
+                            )
                         else:
                             print("You can't equip that item.")
                     elif equip_choice != 0:
@@ -542,17 +749,27 @@ def town(player_data, monsters):
                     print("Invalid input.  Please enter a number.")
 
         elif choice == "4":
-            shop(player_data, shop_items) #call shop function and pass shop items
+            shop(player_data, shop_items)  # call shop function and pass shop items
         elif choice == "5":
             save_name = input("Enter a name for your save file: ")
-            save_game(player_data, monsters, save_name)
+            save_game(
+                player_data, monsters, save_name, equipped_weapon, equipped_shield
+            )  # Include equipment in save
         elif choice == "6":
             print("The dog wags its tail happily!")
-            if random.random() < 0.25: # 1/4 chance
-                print("The dog says: Woof! You look tired. You should sleep at the inn to feel better and maybe more monsters will appear! Woof!")
-                dog_speaks = True #set to true so it doesn't speak again
+            if random.random() < 0.25:  # 1/4 chance
+                print(
+                    "The dog says: Woof! You look tired. You should sleep at the inn to feel better and maybe more monsters will appear! Woof!"
+                )
+                dog_speaks = True  # set to true so it doesn't speak again
             dog_happy = True
-        elif choice == "7":
+        elif choice == "7":  # Call the second map function
+            result, equipped_weapon, equipped_shield = second_map(
+                player_data, equipped_weapon, equipped_shield
+            )
+            if result == "quit":
+                return "quit"
+        elif choice == "8":
             return "quit"
         else:
             print("Invalid choice.")
@@ -571,7 +788,15 @@ def shop(player_data, shop_items):
         try:
             item_index = int(choice)
             # Corrected line: Changed player_gold to player_data["gold"]
-            purchase_successful, player_data["gold"] = purchase_item(player_data["inventory"], shop_items, item_index, player_data["gold"])
+            (
+                purchase_successful,
+                player_data["gold"],
+            ) = purchase_item(
+                player_data["inventory"],
+                shop_items,
+                item_index,
+                player_data["gold"],
+            )
             if purchase_successful:
                 print("Item purchased successfully!")
         except ValueError:
@@ -589,19 +814,117 @@ def main():
     choice = input("Enter your choice (1 or 2): ")
 
     if choice == "1":
-        player_data = {"hp": 30, "gold": 100, "x": 0, "y": 0, "inventory": [], "attack": 10}
+        player_data = {
+            "hp": 30,
+            "gold": 100,
+            "x": 0,
+            "y": 0,
+            "inventory": [],
+            "attack": 1.0,
+            "monsters_defeated": 0,
+        }  # Initialize attack and monster count
         monsters = [WanderingMonster.new_random_monster() for _ in range(2)]
+        equipped_weapon = None
+        equipped_shield = None
     elif choice == "2":
         save_name = input("Enter the name of the save file to load: ")
-        player_data, monsters = load_game(save_name)
+        (
+            player_data,
+            monsters,
+            equipped_weapon,
+            equipped_shield,
+        ) = load_game(save_name)  # Load equipment
         if player_data is None:
             print("No save game found. Starting new game.")
-            player_data = {"hp": 30, "gold": 100, "x": 0, "y": 0, "inventory": [], "attack": 10}
+            player_data = {
+                "hp": 30,
+                "gold": 100,
+                "x": 0,
+                "y": 0,
+                "inventory": [],
+                "attack": 1.0,
+                "monsters_defeated": 0,
+            }  # Initialize attack and monster count
             monsters = [WanderingMonster.new_random_monster() for _ in range(2)]
+            equipped_weapon = None
+            equipped_shield = None
     else:
         print("Invalid choice. Exiting.")
         return
 
-    town(player_data, monsters)
+    town(player_data, monsters, equipped_weapon, equipped_shield)
 
 
+
+
+def second_map(player_data, equipped_weapon, equipped_shield):
+    """Handles the second, more challenging map area."""
+    print("\n--- Entering the Treacherous Wilds ---")
+    enemies_defeated = 0
+    boss_defeated = False
+
+    while not boss_defeated:
+        if enemies_defeated < 5:
+            monster = WanderingMonster.new_random_strong_monster() # Function to get stronger monsters
+            print(f"\nYou encounter a {monster.name}!")
+            player_data["hp"], player_data["gold"], fight_won, player_data["attack"], player_data["monsters_defeated"] = handle_fight(
+                player_data["hp"],
+                player_data["gold"],
+                player_data["inventory"],
+                equipped_weapon,
+                equipped_shield,
+                monster,
+                player_data["attack"],
+                player_data["monsters_defeated"]
+            )
+
+            if player_data["hp"] <= 0:
+                print("You were defeated in the Treacherous Wilds!")
+                return "quit", equipped_weapon, equipped_shield # Or handle game over differently
+
+            if fight_won:
+                enemies_defeated += 1
+                print(f"You have defeated {enemies_defeated} enemies in this area.")
+        else:
+            # Boss encounter
+            boss = {
+                "name": "Shadow Behemoth",
+                "health": 150,
+                "attack": 15,
+                "gold": 100
+            }
+            print(f"\n--- A fearsome {boss['name']} appears! ---")
+            player_data["hp"], player_data["gold"], boss_fight_won, player_data["attack"], player_data["monsters_defeated"] = handle_fight(
+                player_data["hp"],
+                player_data["gold"],
+                player_data["inventory"],
+                equipped_weapon,
+                equipped_shield,
+                boss,
+                player_data["attack"],
+                player_data["monsters_defeated"]
+            )
+
+            if player_data["hp"] <= 0:
+                print("You were defeated by the Shadow Behemoth!")
+                return "quit", equipped_weapon, equipped_shield # Or handle game over
+
+            if boss_fight_won:
+                print(f"\n--- You have vanquished the mighty {boss['name']}! ---")
+                unbreakable_sword = {
+                    "name": "Unbreakable Steel Sword",
+                    "type": "weapon",
+                    "damage": 12,
+                    "currentDurability": float('inf') # Represents unbreakable
+                }
+                player_data["inventory"].append(unbreakable_sword)
+                print(f"You found the legendary {unbreakable_sword['name']}!")
+                boss_defeated = True
+                break # Exit the second map after defeating the boss
+
+        choice = input("\nContinue exploring the wilds (press Enter) or return to town (town)? ").lower()
+        if choice == "town":
+            return "town", equipped_weapon, equipped_shield
+
+    print("\nYou have cleared the Treacherous Wilds!")
+    return "town", equipped_weapon, equipped_shield # Return to town after defeating the boss

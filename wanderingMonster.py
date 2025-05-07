@@ -1,9 +1,9 @@
-# wanderingMonster.py
 import random
 
 # Constants (assuming these are defined elsewhere)
 GRID_SIZE = 10
 TOWN_LOCATION = (0, 0)
+
 
 class WanderingMonster:
     """A class to represent a wandering monster in the game."""
@@ -34,7 +34,7 @@ class WanderingMonster:
         elif direction == "left" and x > 0:
             new_x -= 1
         elif direction == "right" and x < GRID_SIZE - 1:
-            new_x += 1
+            new_y += 1
 
         new_location = (new_x, new_y)
 
@@ -67,3 +67,21 @@ class WanderingMonster:
                 break
 
         return WanderingMonster(location, name, health, gold, color, attack, defense)
+
+    @staticmethod
+    def new_random_strong_monster():
+        strong_monsters = [
+            {"name": "Dire Wolf", "health": 40, "attack": 10, "gold": 25, "defense": 5, "color": (160, 82, 45)},  # Brown
+            {"name": "Stone Golem", "health": 60, "attack": 12, "gold": 30, "defense": 10, "color": (128, 128, 128)}, # Gray
+            {"name": "Shadow Imp", "health": 35, "attack": 9, "gold": 20, "defense": 3, "color": (64, 64, 64)},   # Dark Gray
+        ]
+        strong_monster_data = random.choice(strong_monsters)
+    
+        # Generate a random location (you might want to pass in 'exclude_locations' here as well)
+        x = random.randint(0, GRID_SIZE - 1)
+        y = random.randint(0, GRID_SIZE - 1)
+        location = (x, y)
+    
+        strong_monster_data["location"] = location
+    
+        return WanderingMonster(**strong_monster_data)
